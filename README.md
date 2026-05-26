@@ -12,7 +12,7 @@ A Python toolkit for extracting, merging, auditing and analyzing MiWear device d
 
 </div>
 
-**OpenMiwear** is a set of small, focused command-line tools for the everyday chores of working with MiWear (Xiaomi wearable) device artifacts — unpacking `.tar.gz` / `.zip` / `.gz` bundles, merging rotated logs, extracting assertions, auditing resource directories, analyzing runtime log patterns, and driving serial consoles.
+**OpenMiwear** is a set of small, focused command-line tools for the everyday chores of working with MiWear device artifacts — unpacking `.tar.gz` / `.zip` / `.gz` bundles, merging rotated logs, extracting assertions, auditing resource directories, analyzing runtime log patterns, and driving serial consoles.
 
 Each tool does one thing, takes sensible defaults, and produces human- or machine-readable output (plain text, CSV, Markdown, or interactive HTML).
 
