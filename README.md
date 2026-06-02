@@ -63,7 +63,7 @@ miwear_check -d ./resources -e bin
 | `miwear_gz`          | Decompress and merge `.gz` log shards                                      |
 | `miwear_tz`          | Batch-extract every `.tar.gz` archive in a directory                       |
 | `miwear_uz`          | Batch-extract every `.zip` archive in a directory                          |
-| `miwear_extract`     | Pull files with specific extensions out of a ZIP archive                   |
+| `miwear_ez`          | Pull files out of a ZIP archive by precise filename-stem suffix            |
 | `miwear_check`       | Resource audit — duplicates, unused assets, directory diff                 |
 | `miwear_loganalyzer` | Parse AppID / screen log patterns into CSV or interactive HTML             |
 | `miwear_serial`      | Serial console helper (requires `pyserial`)                                |
@@ -110,16 +110,22 @@ miwear_tz --path ./logs     # *.tar.gz
 miwear_uz --path ./logs     # *.zip
 ```
 
-### `miwear_extract`
+### `miwear_ez`
 
-Pull files with specific extensions out of a ZIP archive into an output directory, without performing a full extraction. If no ZIP is given, the current directory is scanned and you pick one interactively.
+Pull files out of a ZIP archive into an output directory, without performing a full extraction. Files are selected by a precise filename-stem suffix: `ap` matches `*ap.elf` but **not** `*app.elf`. Pass `all` to extract everything. If no ZIP is given, the current directory is scanned and you pick one interactively.
 
 ```bash
-# Auto-detect a ZIP in the current directory, extract *.elf (default)
-miwear_extract
+# Auto-detect a ZIP, extract *ap.elf (default target is 'ap')
+miwear_ez
+
+# Extract every *.elf (legacy behavior), plus ota.zip
+miwear_ez all
+
+# A different stem suffix, e.g. *cp.elf
+miwear_ez cp
 
 # Explicit archive, multiple extensions, custom output directory
-miwear_extract firmware.zip -e bin hex -o ./out
+miwear_ez ap firmware.zip -e bin hex -o ./out
 ```
 
 ### `miwear_check`

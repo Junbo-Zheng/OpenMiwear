@@ -57,13 +57,23 @@ def find_zip_file(path: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Extract files with specific extensions from a ZIP archive "
-        "into the current directory."
+        description="Extract files from a ZIP archive into the current directory, "
+        "filtered by a precise filename-stem suffix (e.g. 'ap' matches "
+        "'*ap.elf' but not '*app.elf'). Use 'all' to extract everything."
     )
     parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
+    )
+    parser.add_argument(
+        "target",
+        type=str,
+        nargs="?",
+        default="ap",
+        help="Filename-stem suffix to match precisely, e.g. 'ap' selects "
+        "'*ap.elf' but not '*app.elf'; 'all' extracts every file "
+        "(default: ap)",
     )
     parser.add_argument(
         "zipfile",
@@ -96,28 +106,36 @@ def main() -> None:
         print(f"Error: '{args.zipfile}' does not exist or is not a file.")
         return
 
-    # Normalize extensions (strip leading dots)
+    # Normalize extensions (strip leading dots) and the target stem suffix.
     extensions: List[str] = [ext.lstrip(".").lower() for ext in args.ext]
+    target: str = args.target.lower()
+    extract_all: bool = target == "all"
+
+    def matches(name: str) -> bool:
+        if name.endswith("/"):
+            return False
+        ext_ok = name.rsplit(".", 1)[-1].lower() in extensions
+        if extract_all:
+            # 'all' restores the legacy behavior: every file matching --ext,
+            # plus the OTA package regardless of its extension.
+            return ext_ok or os.path.basename(name) == "ota.zip"
+        # Precise stem-suffix match: target 'ap' selects '*ap.elf' but NOT
+        # '*app.elf', because 'app'.endswith('ap') is False.
+        stem = os.path.splitext(os.path.basename(name))[0]
+        return ext_ok and stem.endswith(target)
+
+    def selection_desc() -> str:
+        if extract_all:
+            return f"extension(s) {', '.join('.' + e for e in extensions)}"
+        return f"stem suffix '{target}' (e.g. '*{target}.{extensions[0]}')"
 
     try:
         with zipfile.ZipFile(args.zipfile, "r") as zf:
-            # Always include 'ota.zip' (strict basename match) regardless
-            # of --ext, so the OTA package is extracted alongside elf/bin/etc.
-            matched = [
-                name
-                for name in zf.namelist()
-                if not name.endswith("/")
-                and (
-                    name.rsplit(".", 1)[-1].lower() in extensions
-                    or os.path.basename(name) == "ota.zip"
-                )
-            ]
+            matched = [name for name in zf.namelist() if matches(name)]
 
             if not matched:
                 print(
-                    f"No files with extension(s) "
-                    f"{', '.join('.' + e for e in extensions)} "
-                    f"found in '{args.zipfile}'."
+                    f"No files matching {selection_desc()} found in '{args.zipfile}'."
                 )
                 return
 
@@ -148,8 +166,8 @@ def main() -> None:
             os.makedirs(args.output, exist_ok=True)
 
             print(
-                f"\nExtracting {len(selected)} file(s) with extension(s) "
-                f"{', '.join('.' + e for e in extensions)} "
+                f"\nExtracting {len(selected)} file(s) matching "
+                f"{selection_desc()} "
                 f"to '{os.path.abspath(args.output)}':"
             )
 
