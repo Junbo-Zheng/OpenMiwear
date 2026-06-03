@@ -112,7 +112,7 @@ miwear_uz --path ./logs     # *.zip
 
 ### `miwear_ez`
 
-Pull files out of a ZIP archive into an output directory, without performing a full extraction. Files are selected by a precise filename-stem suffix: `ap` matches `*ap.elf` but **not** `*app.elf`. Pass `all` to extract everything. If no ZIP is given, the current directory is scanned and you pick one interactively.
+Pull files out of a ZIP archive into an output directory, without performing a full extraction. Files are selected by one or more precise filename-stem suffixes: `ap` matches `*ap.elf` but **not** `*app.elf`. Pass several suffixes like `ap cp ota` to extract multiple at once, or `all` to extract everything. If no ZIP is given, the current directory is scanned and you pick one interactively.
 
 ```bash
 # Auto-detect a ZIP, extract *ap.elf (default target is 'ap')
@@ -124,8 +124,11 @@ miwear_ez all
 # A different stem suffix, e.g. *cp.elf
 miwear_ez cp
 
+# Multiple suffixes in one pass: *ap.elf, *cp.elf and *ota.elf
+miwear_ez ap cp ota
+
 # Explicit archive, multiple extensions, custom output directory
-miwear_ez ap firmware.zip -e bin hex -o ./out
+miwear_ez ap -z firmware.zip -e bin hex -o ./out
 ```
 
 ### `miwear_check`

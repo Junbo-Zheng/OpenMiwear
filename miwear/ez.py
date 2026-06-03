@@ -58,8 +58,9 @@ def find_zip_file(path: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Extract files from a ZIP archive into the current directory, "
-        "filtered by a precise filename-stem suffix (e.g. 'ap' matches "
-        "'*ap.elf' but not '*app.elf'). Use 'all' to extract everything."
+        "filtered by one or more precise filename-stem suffixes (e.g. 'ap' "
+        "matches '*ap.elf' but not '*app.elf'). Pass several like 'ap cp ota' "
+        "to extract multiple; use 'all' to extract everything."
     )
     parser.add_argument(
         "--version",
@@ -69,16 +70,18 @@ def main() -> None:
     parser.add_argument(
         "target",
         type=str,
-        nargs="?",
-        default="ap",
-        help="Filename-stem suffix to match precisely, e.g. 'ap' selects "
-        "'*ap.elf' but not '*app.elf'; 'all' extracts every file "
+        nargs="*",
+        default=["ap"],
+        help="One or more filename-stem suffixes to match precisely, e.g. "
+        "'ap' selects '*ap.elf' but not '*app.elf'; pass several like "
+        "'ap cp ota' to extract multiple; 'all' extracts every file "
         "(default: ap)",
     )
     parser.add_argument(
-        "zipfile",
+        "-z",
+        "--zip",
+        dest="zipfile",
         type=str,
-        nargs="?",
         default=None,
         help="Path to the ZIP file (auto-detects in current directory if omitted)",
     )
@@ -106,10 +109,10 @@ def main() -> None:
         print(f"Error: '{args.zipfile}' does not exist or is not a file.")
         return
 
-    # Normalize extensions (strip leading dots) and the target stem suffix.
+    # Normalize extensions (strip leading dots) and the target stem suffixes.
     extensions: List[str] = [ext.lstrip(".").lower() for ext in args.ext]
-    target: str = args.target.lower()
-    extract_all: bool = target == "all"
+    targets: List[str] = [t.lower() for t in args.target]
+    extract_all: bool = "all" in targets
 
     def matches(name: str) -> bool:
         if name.endswith("/"):
@@ -120,14 +123,23 @@ def main() -> None:
             # plus the OTA package regardless of its extension.
             return ext_ok or os.path.basename(name) == "ota.zip"
         # Precise stem-suffix match: target 'ap' selects '*ap.elf' but NOT
-        # '*app.elf', because 'app'.endswith('ap') is False.
+        # '*app.elf', because 'app'.endswith('ap') is False. Any of the
+        # requested suffixes matching is enough.
         stem = os.path.splitext(os.path.basename(name))[0]
-        return ext_ok and stem.endswith(target)
+        if not any(stem.endswith(t) for t in targets):
+            return False
+        # The OTA package is a .zip, not an .elf, so it would never pass the
+        # --ext check. Honor it whenever its stem 'ota' was requested (e.g.
+        # 'miwear_ez ota' or 'miwear_ez ap cp ota'), bypassing --ext.
+        if os.path.basename(name) == "ota.zip":
+            return True
+        return ext_ok
 
     def selection_desc() -> str:
         if extract_all:
             return f"extension(s) {', '.join('.' + e for e in extensions)}"
-        return f"stem suffix '{target}' (e.g. '*{target}.{extensions[0]}')"
+        joined = ", ".join(f"'{t}'" for t in targets)
+        return f"stem suffix(es) {joined} (e.g. '*{targets[0]}.{extensions[0]}')"
 
     try:
         with zipfile.ZipFile(args.zipfile, "r") as zf:
@@ -173,8 +185,8 @@ def main() -> None:
 
             for name in selected:
                 basename = os.path.basename(name)
-                target = os.path.join(args.output, basename)
-                with zf.open(name) as src, open(target, "wb") as dst:
+                dest = os.path.join(args.output, basename)
+                with zf.open(name) as src, open(dest, "wb") as dst:
                     dst.write(src.read())
                 print(f"  {basename}  (from {name})")
 
