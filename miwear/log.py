@@ -50,7 +50,7 @@ class DefaultCLIParameters:
     output_path = "./file"
     output_file = "file.tar.gz"
     file_name = "log.tar.gz"
-    filter_pattern = "log\\d*|tmp.log"
+    filter_pattern = "log\\d*|tmp.log|last.log"
     tmp_log = "tmp.log"
     special_file_suffix = [".core", ".txt"]
 
@@ -308,12 +308,65 @@ class LogTools:
         return 0
 
     def __find_logfiles_path__(self) -> int:
+        # Candidate anchor filenames used to locate the log directory. The
+        # configured log name (default tmp.log) is tried first; last.log is an
+        # automatic fallback for projects that renamed tmp.log to last.log.
+        candidates: List[str] = []
+        for name in (self.__cli_parser.log_name, "last.log"):
+            if name and name not in candidates:
+                candidates.append(name)
+
         for root, dirs, files in os.walk(self.__cli_parser.output_path):
             for file in files:
-                if file == self.__cli_parser.log_name:
+                if file in candidates:
                     self.log_dir_path = os.path.abspath(root)
+                    logger.debug(
+                        "located log dir by anchor '%s' at %s",
+                        file,
+                        self.log_dir_path,
+                    )
                     return 0
+
+        # Neither tmp.log nor last.log found. Fall back to a directory holding
+        # rotated .gz logs so the remaining files can still be gunzipped/merged.
+        gz_dir = self.__find_gz_dir__()
+        if gz_dir is not None:
+            self.log_dir_path = gz_dir
+            logger.warning(
+                Highlight.Convert(
+                    "Not found tmp.log or last.log in the archive; falling "
+                    "back to rotated logs in %s. The current-log file will be "
+                    "absent from the merge output." % gz_dir,
+                    Highlight.YELLOW,
+                )
+            )
+            return 0
+
+        logger.warning(
+            Highlight.Convert(
+                "Not found tmp.log or last.log (and no rotated .gz logs "
+                "either); skipping log localization and merge. If your "
+                "project uses a different current-log name, pass it via "
+                "-l/--log.",
+                Highlight.YELLOW,
+            )
+        )
         return -1
+
+    def __find_gz_dir__(self) -> Optional[str]:
+        """Pick the directory under output_path containing the most .gz files.
+
+        Used as a fallback anchor when neither tmp.log nor last.log exists, so
+        rotated gzipped logs can still be processed.
+        """
+        best_dir: Optional[str] = None
+        best_count = 0
+        for root, dirs, files in os.walk(self.__cli_parser.output_path):
+            gz_count = sum(1 for f in files if f.endswith(".gz"))
+            if gz_count > best_count:
+                best_count = gz_count
+                best_dir = os.path.abspath(root)
+        return best_dir
 
     def __find_special_files(self) -> List[str]:
         if self.log_dir_path is None:
@@ -338,7 +391,8 @@ class LogTools:
 
     def __gunzip_all__(self) -> int:
         if self.log_dir_path is None:
-            return -1
+            logger.debug("no log dir located, skip gunzip")
+            return 0
         if not os.path.exists(self.log_dir_path):
             logger.error(
                 Highlight.Convert(
@@ -441,9 +495,9 @@ class LogTools:
         ):
             os.remove(tar_package)
 
-        # find log files dir path
-        if self.__find_logfiles_path__() != 0:
-            return -1
+        # find log files dir path; tolerant of missing tmp.log/last.log
+        # (falls back to rotated .gz logs, or skips with a warning)
+        self.__find_logfiles_path__()
 
         # gunzip all *.gz files under path
         if self.__gunzip_all__() != 0:
