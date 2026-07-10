@@ -25,6 +25,7 @@ import glob
 import re
 import tarfile
 import logging
+import zlib
 
 import argparse
 from enum import IntEnum
@@ -211,7 +212,7 @@ class LogTools:
                 "The %s already exists, will cover it? [Y/N]\n"
                 % self.__cli_parser.output_path
             )
-            if input_str != "Y":
+            if input_str.strip().lower() not in ("y", "yes"):
                 logger.debug("quit and exit")
                 return -1
         # fmt: off
@@ -457,9 +458,17 @@ class LogTools:
             )
             tar_package = self.log_packet_path.replace(".gz", "")
             try:
-                with gzip.open(self.log_packet_path, "rb") as f_in:
+                with open(self.log_packet_path, "rb") as f_in:
                     with open(tar_package, "wb") as f_out:
-                        f_out.write(f_in.read())
+                        # Use zlib directly (not gzip.open().read()) so trailing
+                        # garbage after the gzip stream is tolerated: some packers
+                        # append padding/junk that `gzip -d`/`tar -xzf` silently
+                        # ignore but Python's gzip module rejects (BadGzipFile).
+                        data = f_in.read()
+                        while data[:2] == b"\x1f\x8b":
+                            decomp = zlib.decompressobj(16 + zlib.MAX_WBITS)
+                            f_out.write(decomp.decompress(data))
+                            data = decomp.unused_data
                 os.remove(self.log_packet_path)
             except Exception as e:
                 logger.error(
