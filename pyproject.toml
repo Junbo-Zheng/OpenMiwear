@@ -50,6 +50,7 @@ miwear_serial = "miwear.serialtool:main"
 miwear_check = "miwear.check:main"
 miwear_loganalyzer = "miwear.loganalyzer:main"
 miwear_ez = "miwear.ez:main"
+miwear_ota = "miwear.ota:main"
 
 [tool.setuptools]
 packages = { find = {} }

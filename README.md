@@ -66,6 +66,7 @@ miwear_check -d ./resources -e bin
 | `miwear_ez`          | Pull files out of a ZIP archive by precise filename-stem suffix            |
 | `miwear_check`       | Resource audit — duplicates, unused assets, directory diff                 |
 | `miwear_loganalyzer` | Parse AppID / screen log patterns into CSV or interactive HTML             |
+| `miwear_ota`         | Diff two OTA packages with ddelta and explain the delta size               |
 | `miwear_serial`      | Serial console helper (requires `pyserial`)                                |
 
 ## Usage
@@ -204,6 +205,57 @@ miwear_loganalyzer -f 1.log --html --open-browser
 miwear_loganalyzer -f 1.log -t appid
 miwear_loganalyzer -f 1.log -t screen -o screens.csv
 ```
+
+### `miwear_ota`
+
+Diff two OTA packages file by file, generate a real `ddelta` patch for every payload image, and explain where the delta size comes from. Emits an HTML report (plus a Markdown mirror), the `.patch` files, and a deflated bundle.
+
+> [!NOTE]
+> The report body is in Chinese, matching the layout this tool inherited from its in-house predecessor.
+
+> [!IMPORTANT]
+> `ddelta_generate` is **not** bundled — it is an architecture-specific binary built from the Vela source tree. Build it once:
+>
+> ```bash
+> cd <vela-root>/external/ddelta/ddelta && make clean && make
+> ```
+>
+> It is then picked up automatically when you run inside a Vela checkout. Otherwise pass `--ddelta <path>` or export `MIWEAR_DDELTA_GENERATE=<path>`. Without it the tool still runs, reporting byte-level comparison only.
+
+> [!IMPORTANT]
+> `--blocksize` is **required** (unless you pass `--no-ddelta`). It is the same block size your OTA packaging step passes to `ddelta_generate`, it differs per project, and a non-zero value switches ddelta to in-place patching — which changes the resulting patch. Pass `0` to reproduce a build that does not set a block size. The value is printed in the report header and as a summary card so a report is never ambiguous.
+
+```bash
+# Reproduce a build that uses a 32M block size
+miwear_ota ota_old.zip ota_new.zip --blocksize 32M
+
+# A build that does not set a block size at all
+miwear_ota ota_old.zip ota_new.zip --blocksize 0
+
+# Explicit tool path, verify every patch by applying it back onto the old image
+miwear_ota ota_old.zip ota_new.zip --blocksize 8M \
+    --ddelta ~/vela/external/ddelta/ddelta/ddelta_generate --verify
+
+# Any payload extension, or all files; compare two extracted build trees
+miwear_ota old.zip new.zip --blocksize 32M -e bin img
+miwear_ota ./out_old ./out_new --blocksize 32M -e all
+
+# Byte-level comparison only, no patches, no block size needed
+miwear_ota ota_old.zip ota_new.zip --no-ddelta
+
+# Terminal summary only, no report files
+miwear_ota ota_old.zip ota_new.zip --blocksize 32M --no-output
+```
+
+<details>
+<summary><b>What the report explains</b></summary>
+
+- Per-file raw delta, **deflated** delta and delta/new ratios. `ddelta` writes uncompressed patches by design, so the deflated bundle is the number that maps to download cost.
+- Delta structure per `DDELTA60` patch: header, control stream, diff data (derived from the old image) vs extra data (literal new bytes). Extra-dominated deltas mean little was reusable from the old image.
+- Change classification per 4 KB chunk: sparse fill (zeros → data), data cleared (data → zeros), in-place rewrite, and whether changes are localized or scattered.
+- Images that are byte-identical between packages, and files that exist in only one package.
+
+</details>
 
 ### `miwear_serial`
 
