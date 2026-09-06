@@ -236,3 +236,9 @@ tests/data/nxmake2cmake.txt
 
 *.csv
 *.html
+
+# Local-only OTA delta tests, plus the reports miwear_ota generates
+tests/test_ota.py
+ota_diff_report-*
+ota_diff-*.zip
+ota_diff_patches-*/
