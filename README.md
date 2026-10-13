@@ -67,6 +67,7 @@ miwear_check -d ./resources -e bin
 | `miwear_check`       | Resource audit — duplicates, unused assets, directory diff                 |
 | `miwear_loganalyzer` | Parse AppID / screen log patterns into CSV or interactive HTML             |
 | `miwear_ota`         | Diff two OTA packages with ddelta and explain the delta size               |
+| `miwear_i18n`        | Convert between gettext `.po` and compiled `.mo` (requires `gettext`)       |
 | `miwear_serial`      | Serial console helper (requires `pyserial`)                                |
 
 ## Usage
@@ -256,6 +257,24 @@ miwear_ota ota_old.zip ota_new.zip --blocksize 32M --no-output
 - Images that are byte-identical between packages, and files that exist in only one package.
 
 </details>
+
+### `miwear_i18n`
+
+Batch-convert gettext translation files in a directory. Default direction is `.po` → `.mo` (via `msgfmt`); pass `--reverse` to decompile `.mo` back into editable `.po` (via `msgunfmt`). Requires the `gettext` tools on PATH (`apt install gettext`).
+
+Files are found recursively. A `<locale>/LC_MESSAGES/messages.mo` tree is converted to flat `<locale>.po` files; a flat `<locale>.po` set back into `<locale>.mo`. Note that comments, source references and fuzzy flags are lost in a `.mo` — they cannot be restored by `--reverse`.
+
+```bash
+# Compile every .po under ./translations into ./translations_mo/
+miwear_i18n --path ./translations
+
+# Decompile an i18n tree of .mo files into ./i18n_po/ (flat <locale>.po)
+miwear_i18n --path ./i18n --reverse
+
+# Custom output dir, or write next to each source file
+miwear_i18n --path ./translations_mo --reverse --output po_edit
+miwear_i18n --path ./i18n --reverse --in-place
+```
 
 ### `miwear_serial`
 
