@@ -52,6 +52,7 @@ miwear_loganalyzer = "miwear.loganalyzer:main"
 miwear_ez = "miwear.ez:main"
 miwear_ota = "miwear.ota:main"
 miwear_i18n = "miwear.i18n:main"
+miwear_cls = "miwear.cls:main"
 
 [tool.setuptools]
 packages = { find = {} }
