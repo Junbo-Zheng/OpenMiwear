@@ -69,6 +69,7 @@ miwear_check -d ./resources -e bin
 | `miwear_ota`         | Diff two OTA packages with ddelta and explain the delta size               |
 | `miwear_i18n`        | Convert between gettext `.po` and compiled `.mo` (requires `gettext`)       |
 | `miwear_serial`      | Serial console helper (requires `pyserial`)                                |
+| `miwear_cls`         | Clean a device log dir over the NSH serial console (requires `pyserial`)   |
 
 ## Usage
 
@@ -276,6 +277,26 @@ miwear_i18n --path ./translations_mo --reverse --output po_edit
 miwear_i18n --path ./i18n --reverse --in-place
 ```
 
+### `miwear_cls`
+
+Delete every file under a device log dir over the NSH serial console, keeping
+only one file (default `tmp.log`), recursively. NSH has no glob or loops, so
+the host side drives the whole walk: `ls -l` each level, `rm` each file.
+
+```bash
+# Clean /data/log (default), keep tmp.log, confirm before deleting
+miwear_cls
+
+# eMMC products keep logs in a dedicated /log partition
+miwear_cls /log
+
+# Dry-run: list what would be deleted, delete nothing
+miwear_cls -n
+
+# Other serial port / other keep-file
+miwear_cls -p /dev/ttyACM0 -k keep.txt /log
+```
+
 ### `miwear_serial`
 
 > [!IMPORTANT]
@@ -329,7 +350,7 @@ miwear_serial -p /dev/ttyACM0 -b 921600 -s log.txt     # custom path
 ## Requirements
 
 - Python **3.10+**
-- `pyserial` — only for `miwear_serial`
+- `pyserial` — only for `miwear_serial` and `miwear_cls`
 
 ## Development
 
